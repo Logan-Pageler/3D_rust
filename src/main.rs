@@ -1,3 +1,5 @@
+use rust3d::run;
+
 fn main() {
-    println!("Hello, world!");
+    run();
 }
