@@ -7,12 +7,32 @@ use winit::{
 
 use winit::window::Window;
 
+// Set up vertices and vertex buffers
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
+    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
+];
+
+
+
+// structure to store the sate of the window/frame
 struct State<'a> {
     surface: wgpu::Surface<'a>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
+    // describe how we render things
+    render_pipeline: wgpu::RenderPipeline,
+    // store all the vertices we want to render
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
@@ -22,6 +42,7 @@ struct State<'a> {
 impl<'a> State<'a> {
     // Creating some of the wgpu types requires async code
     async fn new(window: &'a Window) -> State<'a> {
+        // set the size
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -71,6 +92,59 @@ impl<'a> State<'a> {
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
         };
+        
+        // creating the shaders
+        // We are going to use the functions from the shader.wgsl for our shaders
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+
+        // setup the layout for the render pipeline
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState { // Specify that we use the vertex function from shader.wgsl
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState { // Specify that we use the fragment vertex function from shader.wgsl
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState { // setup a color output for the surface
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw, // 2.
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1, // only 1 sample because multisampling is a bit complex
+                mask: !0, // use all the samples
+                alpha_to_coverage_enabled: false, // we won't do aliasing either
+            },
+            multiview: None, // we also wont be using array textures
+            cache: None, // we dont need caching either
+        });
 
         Self {
             window,
@@ -79,6 +153,7 @@ impl<'a> State<'a> {
             queue,
             config,
             size,
+            render_pipeline,
         }
     }
 
@@ -120,7 +195,7 @@ impl<'a> State<'a> {
         // allowing us to perform encoder.finish()
         {
             // for now we are just setting the screen to a constant color
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view, // render to the view from earlier
@@ -139,11 +214,16 @@ impl<'a> State<'a> {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            // Use our pipeline we defined
+            render_pass.set_pipeline(&self.render_pipeline); // 2.
+            render_pass.draw(0..3, 0..1); // 3.
         }
 
         // submit will accept anything that implements IntoIter
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
 
         Ok(())
     }
@@ -153,12 +233,17 @@ pub async fn run() {
     // Window setup...
 
     env_logger::init();
+
+    // establish the event loop
     let event_loop = EventLoop::new().unwrap();
+
+    // create the window
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
+    // set up the state of the window
     let mut state = State::new(&window).await;
     
-
+    // here we set what the event loop actually does
     let _ = event_loop.run(move |event, control_flow| {
         match event {
             // Handle events in the window
