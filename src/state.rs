@@ -1,27 +1,15 @@
 mod texture;
-mod vertex;
 mod camera;
 mod camera_controller;
 mod instance;
+mod model;
+mod resources;
 
+use model::{Model, Vertex};
 use cgmath::prelude::*;
 use instance::InstanceRaw;
 use wgpu::util::DeviceExt;
 use winit::{event::WindowEvent, window::Window};
-
-const VERTICES: &[vertex::Vertex] = &[
-    vertex::Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
-    vertex::Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
-    vertex::Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
-    vertex::Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732914], }, // D
-    vertex::Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], }, // E
-];
-
-const INDICES: &[u16] = &[
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-];
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
@@ -35,12 +23,6 @@ pub struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     // describe how we render things
     render_pipeline: wgpu::RenderPipeline,
-    // store all the vertices we want to render
-    vertex_buffer: wgpu::Buffer,
-    // store the indexes of the vertexes we want to render
-    index_buffer: wgpu::Buffer,
-    // number of indices to render
-    num_indices: u32,
     diffuse_bind_group: wgpu::BindGroup,
     // store our texture
     diffuse_texture: texture::Texture,
@@ -52,6 +34,7 @@ pub struct State<'a> {
     instances: Vec<instance::Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
+    obj_model: model::Model,
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
@@ -222,13 +205,18 @@ impl<'a> State<'a> {
         });
 
         // set up instances
+        // this is all our objects
+        const SPACE_BETWEEN: f32 = 3.0;
+
+        // we are making a n*n grid of cubes that are rotated at weird angles
         let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
             (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let position = cgmath::Vector3 { x: x as f32, y: 0.0, z: z as f32 } - INSTANCE_DISPLACEMENT;
+                let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                let position = cgmath::Vector3 { x, y: 0.0, z };
 
                 let rotation = if position.is_zero() {
-                    // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                    // as Quaternions can affect scale if they're not created correctly
                     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
                 } else {
                     cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
@@ -276,7 +264,7 @@ impl<'a> State<'a> {
                 module: &shader,
                 entry_point: "vs_main",
                 buffers: &[
-                    vertex::Vertex::desc(),
+                    model::ModelVertex::desc(),
                     InstanceRaw::desc(),
                 ],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -319,27 +307,11 @@ impl<'a> State<'a> {
             cache: None, // we dont need caching either
         });
         
-        // set up the vertex buffer
-        // this stores all the different vertexes
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-
-        // Set up the index buffer
-        // this stores all the different indexes and allows us to not repeat vertexes when drawing
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
-        
-        let num_indices = INDICES.len() as u32;
+        // we'll use a cube for now
+        let obj_model =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
 
         Self {
             window,
@@ -349,9 +321,6 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
             diffuse_bind_group,
             diffuse_texture,
             camera,
@@ -362,6 +331,7 @@ impl<'a> State<'a> {
             instances,
             instance_buffer,
             depth_texture,
+            obj_model,
         }
     }
     
@@ -441,14 +411,22 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+
             // Use our pipeline we defined
             render_pass.set_pipeline(&self.render_pipeline);
+
+
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+
+            // make sure it uses our camera for perspective
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16); // 1
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
+
+            use model::DrawModel;
+            // Here we are drawing all the instances
+            // in the future we could optimize this to only draw the instances on screen
+            render_pass.draw_mesh_instanced(&self.obj_model.meshes[0], 0..self.instances.len() as u32);
+ 
         }
 
         // submit will accept anything that implements IntoIter
