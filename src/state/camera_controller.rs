@@ -6,49 +6,97 @@ use winit::{
 };
 pub struct CameraController {
     speed: f32,
+    sensitivity: f32,
+    // Movement controls
     is_forward_pressed: bool,
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+    is_up_pressed: bool,     // Added for Space
+    is_down_pressed: bool,   // Added for Shift
+    // Rotation controls (arrow keys)
+    is_looking_left: bool,
+    is_looking_right: bool,
+    is_looking_up: bool,
+    is_looking_down: bool,
+    // Camera rotation state
+    yaw: f32,   // Left/right rotation
+    pitch: f32, // Up/down rotation
 }
 
 impl CameraController {
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
+            sensitivity: 0.1,
             is_forward_pressed: false,
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_up_pressed: false,
+            is_down_pressed: false,
+            is_looking_left: false,
+            is_looking_right: false,
+            is_looking_up: false,
+            is_looking_down: false,
+            yaw: -90.0,   // Start looking along -Z
+            pitch: 0.0,
         }
     }
 
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state,
-                        physical_key: PhysicalKey::Code(keycode),
-                        ..
-                    },
+                event: KeyEvent {
+                    state,
+                    physical_key: PhysicalKey::Code(keycode),
+                    ..
+                },
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;
-                match keycode {KeyCode::KeyW | KeyCode::ArrowUp => {
+                match keycode {
+                    // WASD controls
+                    KeyCode::KeyW => {
                         self.is_forward_pressed = is_pressed;
                         true
                     }
-                    KeyCode::KeyA | KeyCode::ArrowLeft => {
+                    KeyCode::KeyA => {
                         self.is_left_pressed = is_pressed;
                         true
                     }
-                    KeyCode::KeyS | KeyCode::ArrowDown => {
+                    KeyCode::KeyS => {
                         self.is_backward_pressed = is_pressed;
                         true
                     }
-                    KeyCode::KeyD | KeyCode::ArrowRight => {
+                    KeyCode::KeyD => {
                         self.is_right_pressed = is_pressed;
+                        true
+                    }
+                    // Up/Down controls
+                    KeyCode::Space => {
+                        self.is_up_pressed = is_pressed;
+                        true
+                    }
+                    KeyCode::ShiftLeft => {
+                        self.is_down_pressed = is_pressed;
+                        true
+                    }
+                    // Arrow key controls
+                    KeyCode::ArrowLeft => {
+                        self.is_looking_left = is_pressed;
+                        true
+                    }
+                    KeyCode::ArrowRight => {
+                        self.is_looking_right = is_pressed;
+                        true
+                    }
+                    KeyCode::ArrowUp => {
+                        self.is_looking_up = is_pressed;
+                        true
+                    }
+                    KeyCode::ArrowDown => {
+                        self.is_looking_down = is_pressed;
                         true
                     }
                     _ => false,
@@ -58,35 +106,79 @@ impl CameraController {
         }
     }
 
-    pub fn update_camera(&self, camera: &mut Camera) {
-        use cgmath::InnerSpace;
-        let forward = camera.target - camera.eye;
-        let forward_norm = forward.normalize();
-        let forward_mag = forward.magnitude();
+    // Modified to always process mouse movement without button check
+    pub fn process_mouse(&mut self, dx: f64, dy: f64) {
+        // Always process mouse movement
+        self.yaw += dx as f32 * self.sensitivity;
+        self.pitch -= dy as f32 * self.sensitivity;
 
-        // Prevents glitching when the camera gets too close to the
-        // center of the scene.
-        if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
+        // Allow full 360-degree horizontal rotation
+        if self.yaw > 360.0 {
+            self.yaw -= 360.0;
+        } else if self.yaw < -360.0 {
+            self.yaw += 360.0;
+        }
+        
+        // Constrain pitch to prevent camera flipping
+        self.pitch = self.pitch.clamp(-89.0, 89.0);
+    }
+
+    pub fn update_camera(&mut self, camera: &mut Camera) {
+        use cgmath::InnerSpace;
+
+        // Handle rotation from arrow keys
+        let rotation_speed = 4.0; // Increased speed from 2.0 to 4.0
+        if self.is_looking_left {
+            self.yaw -= rotation_speed;
+        }
+        if self.is_looking_right {
+            self.yaw += rotation_speed;
+        }
+        if self.is_looking_up {
+            self.pitch += rotation_speed;
+        }
+        if self.is_looking_down {
+            self.pitch -= rotation_speed;
+        }
+
+        // Calculate new front direction
+        let (yaw_rad, pitch_rad) = (
+            self.yaw.to_radians(),
+            self.pitch.to_radians(),
+        );
+        
+        let front = cgmath::Vector3::new(
+            yaw_rad.cos() * pitch_rad.cos(),
+            pitch_rad.sin(),
+            yaw_rad.sin() * pitch_rad.cos(),
+        ).normalize();
+
+        // Calculate right vector
+        let right = front.cross(camera.up).normalize();
+
+        // Update movement based on where we're looking
+        if self.is_forward_pressed {
+            camera.eye += front * self.speed;
         }
         if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
+            camera.eye -= front * self.speed;
         }
-
-        let right = forward_norm.cross(camera.up);
-
-        // Redo radius calc in case the forward/backward is pressed.
-        let forward = camera.target - camera.eye;
-        let forward_mag = forward.magnitude();
-
         if self.is_right_pressed {
-            // Rescale the distance between the target and the eye so 
-            // that it doesn't change. The eye, therefore, still 
-            // lies on the circle made by the target and eye.
-            camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
+            camera.eye += right * self.speed;
         }
         if self.is_left_pressed {
-            camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+            camera.eye -= right * self.speed;
         }
+        
+        // Handle up/down movement
+        if self.is_up_pressed {
+            camera.eye.y += self.speed;
+        }
+        if self.is_down_pressed {
+            camera.eye.y -= self.speed;
+        }
+
+        // Update where we're looking
+        camera.target = camera.eye + front;
     }
 }

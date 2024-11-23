@@ -24,6 +24,15 @@ pub async fn run() {
     // here we set what the event loop actually does
     let _ = event_loop.run(move |event, control_flow| {
         match event {
+            // Handle mouse movement separate from window events
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
+                 
+                    state.camera_controller.process_mouse(delta.0, delta.1);
+                
+            }
             // Handle events in the window
             Event::WindowEvent {
                 ref event,
