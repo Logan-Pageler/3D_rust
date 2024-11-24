@@ -25,6 +25,7 @@ pub struct CameraController {
 }
 
 impl CameraController {
+    /// Create new camera controller
     pub fn new(speed: f32) -> Self {
         Self {
             speed,
@@ -44,6 +45,7 @@ impl CameraController {
         }
     }
 
+    /// Process window events to move the camera
     pub fn process_events(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
@@ -106,7 +108,7 @@ impl CameraController {
         }
     }
 
-    // Modified to always process mouse movement without button check
+    /// Modified to always process mouse movement without button check
     pub fn process_mouse(&mut self, dx: f64, dy: f64) {
         // Always process mouse movement
         self.yaw += dx as f32 * self.sensitivity;
@@ -123,11 +125,12 @@ impl CameraController {
         self.pitch = self.pitch.clamp(-89.0, 89.0);
     }
 
+    /// Update the camera based of what is pressed
     pub fn update_camera(&mut self, camera: &mut Camera) {
         use cgmath::InnerSpace;
 
         // Handle rotation from arrow keys
-        let rotation_speed = 4.0; // Increased speed from 2.0 to 4.0
+        let rotation_speed = 0.5;
         if self.is_looking_left {
             self.yaw -= rotation_speed;
         }
@@ -140,6 +143,9 @@ impl CameraController {
         if self.is_looking_down {
             self.pitch -= rotation_speed;
         }
+
+        // Constrain pitch to prevent camera flipping
+        self.pitch = self.pitch.clamp(-89.0, 89.0);
 
         // Calculate new front direction
         let (yaw_rad, pitch_rad) = (

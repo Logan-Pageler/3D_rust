@@ -1,6 +1,6 @@
 // help load files and objects
 
-use std::io::{BufReader, Cursor};
+use std::{io::{BufReader, Cursor}, rc::Rc};
 
 use wgpu::util::DeviceExt;
 
@@ -51,7 +51,7 @@ pub async fn load_texture(
 ///     layout: model memory layout
 pub async fn load_model(
     file_name: &str,
-    device: &wgpu::Device,
+    device: Rc<wgpu::Device>,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
@@ -78,7 +78,7 @@ pub async fn load_model(
     let mut materials = Vec::new();
     // load all the textures for all the materials and create their bindings
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
+        let diffuse_texture = load_texture(&m.diffuse_texture, &device, queue).await?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
@@ -160,5 +160,5 @@ pub async fn load_model(
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials })
+    Ok(model::Model::new(meshes, materials, device))
 }

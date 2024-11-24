@@ -1,4 +1,4 @@
-// represent one object in 3d space/ a collection of vertices
+// represent the instance of one model
 
 pub struct Instance {
     pub position: cgmath::Vector3<f32>,
@@ -7,11 +7,13 @@ pub struct Instance {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+/// Represent the raw form of the instance that can be sent to gpu
 pub struct InstanceRaw {
     model: [[f32; 4]; 4],
 }
 
 impl Instance {
+    /// Convert the instance to its raw form
     pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
             model: (cgmath::Matrix4::from_translation(self.position) * cgmath::Matrix4::from(self.rotation)).into(),
@@ -20,7 +22,7 @@ impl Instance {
 }
 
 impl InstanceRaw {
-    // describe how the instance variable is stored in memory
+    /// describe how the instance variable is stored in memory
     pub fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
         wgpu::VertexBufferLayout {

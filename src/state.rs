@@ -1,40 +1,30 @@
-mod texture;
 mod camera;
 mod camera_controller;
-mod instance;
-mod model;
-mod resources;
+mod world;
 
-use model::{Model, Vertex};
-use cgmath::prelude::*;
-use instance::InstanceRaw;
+use std::rc::Rc;
+
 use wgpu::util::DeviceExt;
 use winit::{event::WindowEvent, window::Window};
 
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(NUM_INSTANCES_PER_ROW as f32 * 0.5, 0.0, NUM_INSTANCES_PER_ROW as f32 * 0.5);
+use world::{instance::InstanceRaw, model::{self, Vertex}, texture, DrawWorld, World};
 
-// structure to store the sate of the window/frame
+/// structure to store the sate of the window/frame
 pub struct State<'a> {
     pub size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'a>,
-    device: wgpu::Device,
+    device: Rc<wgpu::Device>,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    // describe how we render things
+    /// describe how we render things
     render_pipeline: wgpu::RenderPipeline,
-    diffuse_bind_group: wgpu::BindGroup,
-    // store our texture
-    diffuse_texture: texture::Texture,
     camera: camera::Camera,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     pub camera_controller: camera_controller::CameraController,
     camera_bind_group: wgpu::BindGroup,
-    instances: Vec<instance::Instance>,
-    instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
-    obj_model: model::Model,
+    world: World,
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
@@ -49,15 +39,17 @@ impl<'a> State<'a> {
         // set the size
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
+        // The instance represents how we work with all wgpu stuff
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             ..Default::default()
         });
         
+        // set up the surface our GPU writes to
         let surface = instance.create_surface(window).unwrap();
 
+        // Set up our adapter to our GPU
         let adapter = instance.request_adapter(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -66,11 +58,10 @@ impl<'a> State<'a> {
             },
         ).await.unwrap();
 
-        let (device, queue) = adapter.request_device(
+        // Set up our interface with our GPU to interact with it
+        let (device_obj, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor {
                 required_features: wgpu::Features::empty(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web, we'll have to disable some.
                 required_limits: wgpu::Limits::default(),
                 label: None,
                 memory_hints: Default::default(),
@@ -78,14 +69,19 @@ impl<'a> State<'a> {
             None, // Trace path
         ).await.unwrap();
 
+        // put device onto the heap so we can share ownership
+        let device = Rc::new(device_obj);
+
+        // returns what the surface can do/our available operations with the present GPU
         let surface_caps = surface.get_capabilities(&adapter);
-        // Shader code in this tutorial assumes an sRGB surface texture. Using a different
-        // one will result in all the colors coming out darker. If you want to support non
-        // sRGB surfaces, you'll need to account for that when drawing to the frame.
+
+        // configure our surface to be an sRGB surface texture
         let surface_format = surface_caps.formats.iter()
             .find(|f| f.is_srgb())
             .copied()
             .unwrap_or(surface_caps.formats[0]);
+
+        // Configure our surface size and refresh rate
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -98,11 +94,6 @@ impl<'a> State<'a> {
         };
         
         // Textures:
-        // we'll load a texture from happy-tree
-        surface.configure(&device, &config);
-        let diffuse_bytes = include_bytes!("happy-tree.png");
-        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
-
         // define how binding are laid out for the fragment shader
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -129,25 +120,8 @@ impl<'a> State<'a> {
                 label: Some("texture_bind_group_layout"),
             });
         
-        // now we define a bind group for our texture
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                    }
-                ],
-                label: Some("diffuse_bind_group"),
-            }
-        );
-
         // setting up the camera
+        // Here is the user friendly info
         let camera = camera::Camera {
             // position the camera 1 unit up and 2 units back
             // +z is out of the screen
@@ -162,9 +136,11 @@ impl<'a> State<'a> {
             zfar: 100.0,
         };
 
+        // This stores the main camera matrix
         let mut camera_uniform = camera::CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
 
+        // buffer to send camera data to our GPU
         let camera_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Camera Buffer"),
@@ -173,6 +149,7 @@ impl<'a> State<'a> {
             }
         );
 
+        // set up a controller to control the camera
         let camera_controller = camera_controller::CameraController::new(0.05);
 
         // set up the camera bind group memory layout
@@ -204,41 +181,7 @@ impl<'a> State<'a> {
             label: Some("camera_bind_group"),
         });
 
-        // set up instances
-        // this is all our objects
-        const SPACE_BETWEEN: f32 = 3.0;
 
-        // we are making a n*n grid of cubes that are rotated at weird angles
-        let instances = (0..NUM_INSTANCES_PER_ROW).flat_map(|z| {
-            (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                let position = cgmath::Vector3 { x, y: 0.0, z };
-
-                let rotation = if position.is_zero() {
-                    cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0))
-                } else {
-                    cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                };
-
-                instance::Instance {
-                    position, rotation,
-                }
-            })
-        }).collect::<Vec<_>>();
-
-        let instance_data = instances.iter().map(instance::Instance::to_raw).collect::<Vec<_>>();
-
-        // create instance buffer
-        let instance_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&instance_data),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-        
         // create our depth texture
         let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
     
@@ -306,12 +249,9 @@ impl<'a> State<'a> {
             multiview: None, // we also wont be using array textures
             cache: None, // we dont need caching either
         });
+
+        let world = World::new(&device, &queue, &texture_bind_group_layout).await;
         
-        // we'll use a cube for now
-        let obj_model =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
-                .await
-                .unwrap();
 
         Self {
             window,
@@ -321,17 +261,13 @@ impl<'a> State<'a> {
             config,
             size,
             render_pipeline,
-            diffuse_bind_group,
-            diffuse_texture,
             camera,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
             camera_controller,
-            instances,
-            instance_buffer,
             depth_texture,
-            obj_model,
+            world,
         }
     }
     
@@ -356,11 +292,12 @@ impl<'a> State<'a> {
     /// 
     /// Returns true if it successfully handled the user input
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
+        self.camera_controller.process_events(event) || self.world.process_events(event)
     }
 
     /// update various objects in the program
     pub fn update(&mut self) {
+        self.world.update_world();
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
@@ -411,21 +348,12 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
             // Use our pipeline we defined
             render_pass.set_pipeline(&self.render_pipeline);
 
-
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-
-            // make sure it uses our camera for perspective
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-
-            use model::DrawModel;
             // Here we are drawing all the instances
             // in the future we could optimize this to only draw the instances on screen
-            render_pass.draw_mesh_instanced(&self.obj_model.meshes[0], 0..self.instances.len() as u32);
+            render_pass.draw_world(&self.world, &self.camera_bind_group);
  
         }
 
