@@ -116,6 +116,13 @@ impl Model {
 
         self.instance_buffer = instance_buffer;
     }
+
+    pub fn change_material(&mut self){
+        self.meshes[0].material = self.meshes[0].material + 1;
+        if self.materials.len()<=self.meshes[0].material {
+            self.meshes[0].material = 0;
+        }
+    }
 }
 
 /// represent the material for a model
