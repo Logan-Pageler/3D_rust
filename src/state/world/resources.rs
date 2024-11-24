@@ -1,13 +1,13 @@
 // help load files and objects
 
-use std::{io::{BufReader, Cursor}, rc::Rc};
+use std::{io::{BufReader, Cursor}, path::Path, rc::Rc};
 
 use wgpu::util::DeviceExt;
 
 use super::{model, texture};
 
 /// function to load string data from a file
-pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
+pub async fn load_string(file_name: &dyn AsRef<Path>) -> anyhow::Result<String> {
     let path = std::path::Path::new(env!("OUT_DIR"))
         .join("res")
         .join(file_name);
@@ -56,7 +56,9 @@ pub async fn load_model(
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
     // read file
-    let obj_text = load_string(file_name).await?;
+    let model_dir = Path::new(file_name).parent().unwrap();
+    // .as_os_str().to_str().unwrap();
+    let obj_text = load_string(&file_name).await?;
     let obj_cursor = Cursor::new(obj_text);
     let mut obj_reader = BufReader::new(obj_cursor);
 
@@ -69,7 +71,7 @@ pub async fn load_model(
             ..Default::default()
         },
         |p| async move {
-            let mat_text = load_string(&p).await.unwrap();
+            let mat_text = load_string(&model_dir.join(p)).await.unwrap();
             tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
         },
     )

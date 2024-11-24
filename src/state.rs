@@ -1,9 +1,11 @@
 mod camera;
 mod camera_controller;
 mod world;
+mod mouse_grabber;
 
 use std::rc::Rc;
 
+use mouse_grabber::{MouseGrabber};
 use wgpu::util::DeviceExt;
 use winit::{event::WindowEvent, window::Window};
 
@@ -25,6 +27,7 @@ pub struct State<'a> {
     camera_bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
     world: World,
+    mouse_grabber: MouseGrabber,
     // The window must be declared after the surface so
     // it gets dropped after it as the surface contains
     // unsafe references to the window's resources.
@@ -250,7 +253,11 @@ impl<'a> State<'a> {
             cache: None, // we dont need caching either
         });
 
+        // establish the world with all its models and instances
         let world = World::new(&device, &queue, &texture_bind_group_layout).await;
+
+        // setup something to keep our mouse centered
+        let mouse_grabber = MouseGrabber { mouse_locked: false };
         
 
         Self {
@@ -268,6 +275,7 @@ impl<'a> State<'a> {
             camera_controller,
             depth_texture,
             world,
+            mouse_grabber,
         }
     }
     
@@ -292,7 +300,16 @@ impl<'a> State<'a> {
     /// 
     /// Returns true if it successfully handled the user input
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event) || self.world.process_events(event)
+        self.mouse_grabber.process_events(event, self.window) || self.camera_controller.process_events(event) || self.world.process_events(event)
+    }
+
+
+    /// Handle mouse events
+    pub fn process_mouse_movement(&mut self, delta_x: f64, delta_y: f64) {
+        if self.mouse_grabber.mouse_locked {
+            self.camera_controller.process_mouse(delta_x, delta_y);
+        }
+        self.mouse_grabber.process_mouse(self.window, &self.size);
     }
 
     /// update various objects in the program

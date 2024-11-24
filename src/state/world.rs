@@ -25,7 +25,7 @@ impl World {
         // we'll use a cube for now
 
         // load all the models specified in "resources.txt"
-        let models = load_string("resources.txt")
+        let models = load_string(&"resources.txt")
             .await
             .unwrap()
             .split("\n")

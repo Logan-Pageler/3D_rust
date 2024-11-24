@@ -29,10 +29,9 @@ pub async fn run() {
                 event: DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                 
-                    state.camera_controller.process_mouse(delta.0, delta.1);
-                
-            }
+                state.process_mouse_movement(delta.0, delta.1);
+            },
+    
             // Handle events in the window
             Event::WindowEvent {
                 ref event,
@@ -47,14 +46,17 @@ pub async fn run() {
                             KeyEvent {
                                 state: ElementState::Pressed,
                                 physical_key: PhysicalKey::Code(KeyCode::Escape),
+                                repeat: false,
                                 ..
                             },
                         ..
                     } => control_flow.exit(),
+
                     // If someone tries to resize the window, allow it
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
                     },
+                    
                     // Event to redraw the screen
                     WindowEvent::RedrawRequested => {
                         // This tells winit that we want another frame after this one
