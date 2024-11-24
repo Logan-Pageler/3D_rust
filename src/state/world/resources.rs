@@ -8,6 +8,7 @@ use super::{model, texture};
 
 /// function to load string data from a file
 pub async fn load_string(file_name: &dyn AsRef<Path>) -> anyhow::Result<String> {
+    println!("{}", file_name.as_ref().as_os_str().to_str().unwrap());
     let path = std::path::Path::new(env!("OUT_DIR"))
         .join("res")
         .join(file_name);
@@ -17,7 +18,7 @@ pub async fn load_string(file_name: &dyn AsRef<Path>) -> anyhow::Result<String> 
 }
 
 /// Function to load binary data from a file
-pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
+pub async fn load_binary(file_name: &dyn AsRef<Path>) -> anyhow::Result<Vec<u8>> {
     let path = std::path::Path::new(env!("OUT_DIR"))
         .join("res")
         .join(file_name);
@@ -33,12 +34,12 @@ pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
 ///     device: device to load onto
 ///     queue: command queue for device
 pub async fn load_texture(
-    file_name: &str,
+    file_name: &dyn AsRef<Path>,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {
     let data = load_binary(file_name).await?;
-    texture::Texture::from_bytes(device, queue, &data, file_name)
+    texture::Texture::from_bytes(device, queue, &data, file_name.as_ref().file_name().unwrap().to_str().unwrap())
 }
 
 
@@ -80,7 +81,7 @@ pub async fn load_model(
     let mut materials = Vec::new();
     // load all the textures for all the materials and create their bindings
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, &device, queue).await?;
+        let diffuse_texture = load_texture(&model_dir.join(m.diffuse_texture), &device, queue).await?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
