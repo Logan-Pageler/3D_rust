@@ -85,7 +85,7 @@ impl Model {
     pub fn set_instances(&mut self, instances: Vec<Instance>) {
 
         let instance_data = instances.iter().map(instance::Instance::to_raw).collect::<Vec<_>>();
-
+        
         // create instance buffer
         let instance_buffer = self.device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {

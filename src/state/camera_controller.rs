@@ -125,6 +125,22 @@ impl CameraController {
         self.pitch = self.pitch.clamp(-89.0, 89.0);
     }
 
+    pub fn process_mouse_wheel(&mut self, scroll:f32, camera: &mut Camera) {
+        use cgmath::InnerSpace;
+
+        let (yaw_rad, pitch_rad) = (
+            self.yaw.to_radians(),
+            self.pitch.to_radians(),
+        );
+
+        let front = cgmath::Vector3::new(
+            yaw_rad.cos() * pitch_rad.cos(),
+            pitch_rad.sin(),
+            yaw_rad.sin() * pitch_rad.cos(),
+        ).normalize();
+
+        camera.eye += scroll * front * self.speed * 50.0;
+    }
     /// Update the camera based of what is pressed
     pub fn update_camera(&mut self, camera: &mut Camera) {
         use cgmath::InnerSpace;

@@ -31,7 +31,7 @@ pub async fn run() {
             } => {
                 state.process_mouse_movement(delta.0, delta.1);
             },
-    
+
             // Handle events in the window
             Event::WindowEvent {
                 ref event,
@@ -55,6 +55,13 @@ pub async fn run() {
                     // If someone tries to resize the window, allow it
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
+                    },
+
+                    WindowEvent::MouseWheel { 
+                        delta,
+                        ..
+                    } => {
+                        state.process_mouse_wheel(delta);
                     },
                     
                     // Event to redraw the screen

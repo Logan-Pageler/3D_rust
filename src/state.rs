@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use mouse_grabber::{MouseGrabber};
 use wgpu::util::DeviceExt;
-use winit::{event::WindowEvent, window::Window};
+use winit::{event::{MouseScrollDelta, WindowEvent}, window::Window};
 
 use world::{instance::InstanceRaw, model::{self, Vertex}, texture, DrawWorld, World};
 
@@ -310,6 +310,16 @@ impl<'a> State<'a> {
             self.camera_controller.process_mouse(delta_x, delta_y);
         }
         self.mouse_grabber.process_mouse(self.window, &self.size);
+    }
+
+    pub fn process_mouse_wheel(&mut self, delta: &MouseScrollDelta) {
+        if self.mouse_grabber.mouse_locked {
+            match delta {
+                MouseScrollDelta::LineDelta(_, scroll) => self.camera_controller.process_mouse_wheel(*scroll, &mut self.camera),
+                MouseScrollDelta::PixelDelta(physical_position) => (),
+            };
+    
+        }
     }
 
     /// update various objects in the program
