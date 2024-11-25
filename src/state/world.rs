@@ -21,6 +21,10 @@ pub struct World {
     is_color_change: bool,
     is_color_change_pressed: bool,
     cur_angle: f32,
+    cur_scale: f32,
+    is_resize: bool,
+    is_resize_pressed: bool,
+    is_upscalling: bool,
     num_instances: u32,
 }
 
@@ -52,6 +56,10 @@ impl World {
             is_color_change: false,
             is_color_change_pressed: false,        
             cur_angle: 0.0,
+            cur_scale: 1.0,
+            is_resize: false,
+            is_resize_pressed: false,
+            is_upscalling: false,        
             num_instances: 0,
         }
     }
@@ -97,6 +105,15 @@ impl World {
                         }
                         true
                     }
+                    KeyCode::Digit3 => {
+                        if is_pressed && !self.is_resize_pressed {
+                            self.is_resize = !self.is_resize;
+                            self.is_resize_pressed = true;
+                        } else if !is_pressed && self.is_resize_pressed{
+                            self.is_resize_pressed = false;
+                        }
+                        true
+                    }
                     _ => false,
                 }
             }
@@ -134,6 +151,21 @@ impl World {
             self.is_color_change_pressed = false;
         }
 
+        if self.is_resize {
+            change_occurred = true;
+            if self.is_upscalling {
+                self.cur_scale = self.cur_scale + 0.01;
+                if self.cur_scale >= 1.0 {
+                    self.is_upscalling = false;
+                }
+            } else {
+                self.cur_scale = self.cur_scale - 0.01;
+                if self.cur_scale <= 0.5 {
+                    self.is_upscalling = true;
+                }
+            }
+        }
+
 
         if change_occurred {
             // set up instances
@@ -142,6 +174,7 @@ impl World {
 
             let num_instances = self.num_instances;
             let mut angle = self.cur_angle;
+            let scale: f32 = self.cur_scale;
 
             // we are making a n*n grid of cubes that are rotated at weird angles
             let instances = (0..num_instances).flat_map(|z| {
@@ -157,7 +190,7 @@ impl World {
                     let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(angle));
 
                     instance::Instance {
-                        position, rotation,
+                        position, rotation, scale
                     }
                 })
             }).collect::<Vec<_>>();
