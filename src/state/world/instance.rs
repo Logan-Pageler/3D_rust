@@ -61,3 +61,30 @@ impl InstanceRaw {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cgmath::Rotation3;
+
+    #[test]
+    fn test_instance_conversion() {
+        let position = cgmath::Vector3 {x:1.0, y: 2.0, z:3.0};
+        let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0));
+
+        let inst = Instance {
+            position, rotation, scale:1.0,
+        };
+
+        assert_eq!(
+            inst.to_raw().model, 
+            // Expected raw matrix:
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [1.0, 2.0, 3.0, 1.0],
+            ]
+        );
+    }
+}

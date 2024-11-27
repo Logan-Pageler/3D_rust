@@ -165,3 +165,25 @@ pub async fn load_model(
 
     Ok(model::Model::new(meshes, materials, device))
 }
+
+/// Tests for resources
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that we can properly read text from file
+    #[test]
+    fn test_load_text() {
+        let text = tokio_test::block_on(load_string(&"test_files/hello_world.txt")).unwrap();
+
+        assert_eq!(text, "Hello World!");
+    }
+
+    /// Test that we can properly read bytes from file
+    #[test]
+    fn test_load_binary() {
+        let text = tokio_test::block_on(load_binary(&"test_files/hello_world.txt")).unwrap();
+
+        assert_eq!(text, vec![72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33]);
+    }
+}
