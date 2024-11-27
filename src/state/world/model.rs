@@ -49,7 +49,8 @@ impl Vertex for ModelVertex {
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
-    pub instances: Vec<Instance>,
+    pub visible: bool,
+    instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     /// device this model is rendered with
     device: Rc<wgpu::Device>,
@@ -75,6 +76,7 @@ impl Model {
         Self {
             meshes,
             materials,
+            visible:true,
             instances,
             instance_buffer,
             device,
@@ -210,10 +212,12 @@ where
         instances: Range<u32>,
         camera_bind_group: &'b wgpu::BindGroup,
     ) {
-        for mesh in &model.meshes {
-            let material = &model.materials[mesh.material];
-            self.set_vertex_buffer(1, model.instance_buffer.slice(..));
-            self.draw_mesh_instanced(mesh, material, instances.clone(), camera_bind_group);
+        if model.visible {
+            for mesh in &model.meshes {
+                let material = &model.materials[mesh.material];
+                self.set_vertex_buffer(1, model.instance_buffer.slice(..));
+                self.draw_mesh_instanced(mesh, material, instances.clone(), camera_bind_group);
+            }
         }
     }
 }
