@@ -49,7 +49,7 @@ impl Vertex for ModelVertex {
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
-    instances: Vec<Instance>,
+    pub instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     /// device this model is rendered with
     device: Rc<wgpu::Device>,
@@ -119,7 +119,7 @@ impl Model {
 
     pub fn change_material(&mut self){
         self.meshes[0].material = self.meshes[0].material + 1;
-        if self.materials.len()<=self.meshes[0].material {
+        if self.materials.len() - 1 <=self.meshes[0].material {
             self.meshes[0].material = 0;
         }
     }

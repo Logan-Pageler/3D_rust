@@ -4,6 +4,7 @@ use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use model::{DrawModel, Model};
 use resources::{load_model, load_string};
 use wgpu::BindGroupLayout;
+// use wgpu::Instance;
 use winit::{event::{ElementState, KeyEvent, WindowEvent}, keyboard::{KeyCode, PhysicalKey}};
 use cgmath::prelude::*;
 
@@ -14,6 +15,9 @@ pub mod texture;
 
 pub struct World {
     pub models: Vec<Model>, 
+    // instancecpy: Vec<instance::Instance>,
+    // help_cube_instance: Vec<instance::Instance>,
+    // materialcpy: f32,
     is_increase_pressed: bool,
     is_decrease_pressed: bool,
     is_spin: bool,
@@ -26,6 +30,9 @@ pub struct World {
     is_resize_pressed: bool,
     is_upscalling: bool,
     num_instances: u32,
+    // is_help_pressed: bool,
+    // is_being_helped: bool,
+    // is_help_just_pressed: bool,
 }
 
 impl World {
@@ -47,8 +54,29 @@ impl World {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
+        // // instantiating the cube with the help menu on it
+        // let help_cube_instance = (0..0).flat_map(|z| {
+        //     (0..0).map(move |x| {
+        //         let x = x as f32;
+        //         let z = z as f32;
+
+        //         let scale = 1.0;
+
+        //         let position = cgmath::Vector3 { x, y: 0.0, z };
+                
+        //         let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0));
+
+        //         instance::Instance {
+        //             position, rotation, scale
+        //         }
+        //     })
+        // }).collect::<Vec<_>>();
+
         Self {
             models,
+            // instancecpy: Vec::new(),
+            // help_cube_instance,
+            // materialcpy: 0.0,
             is_decrease_pressed: false,
             is_increase_pressed: false,
             is_spin: false,
@@ -61,6 +89,9 @@ impl World {
             is_resize_pressed: false,
             is_upscalling: false,        
             num_instances: 0,
+            // is_help_pressed: false,
+            // is_being_helped: false,
+            // is_help_just_pressed: false
         }
     }
 
@@ -71,22 +102,24 @@ impl World {
                 event: KeyEvent {
                     state,
                     physical_key: PhysicalKey::Code(keycode),
+                    repeat: false,
                     ..
                 },
                 ..
             } => {
                 let is_pressed = *state == ElementState::Pressed;
                 match keycode {
-                    // WASD controls
+                    // increase number of cubes
                     KeyCode::KeyJ => {
                         self.is_increase_pressed = is_pressed;
                         true
                     }
+                    // decrease number of cubes
                     KeyCode::KeyK => {
                         self.is_decrease_pressed = is_pressed;
                         true
                     }
-                    // toggle is_spin is the key is pressed or released 
+                    // toggle is_spin if the key is pressed or released 
                     KeyCode::Digit1 => {
                         if is_pressed && !self.is_spin_pressed {
                             self.is_spin = !self.is_spin;
@@ -96,7 +129,7 @@ impl World {
                         }
                         true
                     }
-                    // toggle is_color_change is the key is pressed or released 
+                    // toggle is_color_change if the key is pressed or released 
                     KeyCode::Digit2 => {
                         if is_pressed {
                             self.is_color_change = true;
@@ -105,6 +138,7 @@ impl World {
                         }
                         true
                     }
+                    // toggle resize if the key is pressed or released
                     KeyCode::Digit3 => {
                         if is_pressed && !self.is_resize_pressed {
                             self.is_resize = !self.is_resize;
@@ -114,6 +148,18 @@ impl World {
                         }
                         true
                     }
+                    // // toggle is_help_pressed if the key is pressed
+                    // KeyCode::KeyH => {
+                    //     self.is_help_pressed = is_pressed;
+                    //     if is_pressed && !self.is_being_helped {
+                    //         self.is_being_helped = true;
+                    //     }
+                    //     else if is_pressed && self.is_being_helped {
+                    //         self.is_help_just_pressed = true;
+                    //         self.is_being_helped = false;
+                    //     }
+                    //     true
+                    // }
                     _ => false,
                 }
             }
@@ -197,6 +243,22 @@ impl World {
             self.models[0].set_instances(instances);
         }
     }
+
+    // pub fn make_help(&mut self) {
+    //     // make help cube
+    //     if self.is_being_helped {
+    //         self.models[0].set_instances(self.help_cube_instance);
+    //     }
+    //     // set instancecpy to copy the instances
+    //     if !self.is_being_helped {
+    //         // if key was just pressed set instances to copy
+    //         if self.is_help_just_pressed {
+    //             self.models[0].set_instances(self.instancecpy);
+    //             self.is_help_just_pressed = false;
+    //         }
+    //         self.instancecpy = self.models[0].instances;
+    //     }
+    // }
 }
 
 pub trait DrawWorld<'a> {
