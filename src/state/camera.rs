@@ -62,3 +62,51 @@ impl CameraUniform {
         self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::state::camera;
+
+    #[test]
+    fn test_update_view_proj() {
+        let fake_camera = camera::Camera {
+            eye: (0.0, 1.0, 2.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: cgmath::Vector3::unit_y(),
+            aspect: 1.0,
+            fovy: 90.0,
+            znear: 1.0,
+            zfar: 100.0,
+        };
+
+        let mut camera_uniform = camera::CameraUniform::new();
+
+        camera_uniform.update_view_proj(&fake_camera);
+        assert_eq!(fake_camera.build_view_projection_matrix(), camera_uniform.view_proj.into());
+    }
+
+    #[test]
+    fn test_build_view_projection_matrix() {
+        let fake_camera = camera::Camera {
+            eye: (0.0, 1.0, 2.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: cgmath::Vector3::unit_y(),
+            aspect: 1.0,
+            fovy: 90.0,
+            znear: 1.0,
+            zfar: 100.0,
+        };
+
+        let return_value = fake_camera.build_view_projection_matrix();
+        let expected=[
+            [1.0,0.00000000,0.00000000, 0.00000000],
+            [0.00000000, 0.894427180, -0.228124112, -0.675337732],
+            [0.00000000, -0.447213590, -0.456248224, -1.35067546],
+            [0.00000000, 0.00000000, 0.130519629, 2.36658764]
+        ];
+
+        assert_eq!(return_value, expected.into());
+
+    }
+
+}
