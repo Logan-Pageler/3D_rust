@@ -134,37 +134,42 @@ impl CameraController {
 
     /// Modified to always process mouse movement without button check
     pub fn process_mouse(&mut self, dx: f64, dy: f64) {
-        // Always process mouse movement
-        self.yaw += dx as f32 * self.sensitivity;
-        self.pitch -= dy as f32 * self.sensitivity;
+        if !self.is_being_helped {
+            // Always process mouse movement
+            self.yaw += dx as f32 * self.sensitivity;
+            self.pitch -= dy as f32 * self.sensitivity;
 
-        // Allow full 360-degree horizontal rotation
-        if self.yaw > 360.0 {
-            self.yaw -= 360.0;
-        } else if self.yaw < -360.0 {
-            self.yaw += 360.0;
+            // Allow full 360-degree horizontal rotation
+            if self.yaw > 360.0 {
+                self.yaw -= 360.0;
+            } else if self.yaw < -360.0 {
+                self.yaw += 360.0;
+            }
+            
+            // Constrain pitch to prevent camera flipping
+            self.pitch = self.pitch.clamp(-89.0, 89.0);
         }
-        
-        // Constrain pitch to prevent camera flipping
-        self.pitch = self.pitch.clamp(-89.0, 89.0);
     }
 
     pub fn process_mouse_wheel(&mut self, scroll:f32, camera: &mut Camera) {
-        use cgmath::InnerSpace;
+        if !self.is_being_helped {
+            use cgmath::InnerSpace;
 
-        let (yaw_rad, pitch_rad) = (
-            self.yaw.to_radians(),
-            self.pitch.to_radians(),
-        );
+            let (yaw_rad, pitch_rad) = (
+                self.yaw.to_radians(),
+                self.pitch.to_radians(),
+            );
 
-        let front = cgmath::Vector3::new(
-            yaw_rad.cos() * pitch_rad.cos(),
-            pitch_rad.sin(),
-            yaw_rad.sin() * pitch_rad.cos(),
-        ).normalize();
+            let front = cgmath::Vector3::new(
+                yaw_rad.cos() * pitch_rad.cos(),
+                pitch_rad.sin(),
+                yaw_rad.sin() * pitch_rad.cos(),
+            ).normalize();
 
-        camera.eye += scroll * front * self.speed * 50.0;
+            camera.eye += scroll * front * self.speed * 50.0;
+        }
     }
+
     /// Update the camera based of what is pressed
     pub fn update_camera(&mut self, camera: &mut Camera) {
         use cgmath::InnerSpace;

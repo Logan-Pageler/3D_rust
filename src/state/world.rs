@@ -30,9 +30,9 @@ pub struct World {
     is_resize_pressed: bool,
     is_upscalling: bool,
     num_instances: u32,
-    // is_help_pressed: bool,
-    // is_being_helped: bool,
-    // is_help_just_pressed: bool,
+    is_help_pressed: bool,
+    is_being_helped: bool,
+    is_help_just_pressed: bool
 }
 
 impl World {
@@ -46,7 +46,7 @@ impl World {
             .unwrap()
             .split("\n")
             .map(|file_name| {
-                load_model(file_name, device.clone(), queue, texture_bind_group_layout)
+                load_model(file_name.trim_right(), device.clone(), queue, texture_bind_group_layout)
             }).collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
             .await
@@ -89,9 +89,9 @@ impl World {
             is_resize_pressed: false,
             is_upscalling: false,        
             num_instances: 0,
-            // is_help_pressed: false,
-            // is_being_helped: false,
-            // is_help_just_pressed: false
+            is_help_pressed: false,
+            is_being_helped: false,
+            is_help_just_pressed: false
         }
     }
 
@@ -148,18 +148,18 @@ impl World {
                         }
                         true
                     }
-                    // // toggle is_help_pressed if the key is pressed
-                    // KeyCode::KeyH => {
-                    //     self.is_help_pressed = is_pressed;
-                    //     if is_pressed && !self.is_being_helped {
-                    //         self.is_being_helped = true;
-                    //     }
-                    //     else if is_pressed && self.is_being_helped {
-                    //         self.is_help_just_pressed = true;
-                    //         self.is_being_helped = false;
-                    //     }
-                    //     true
-                    // }
+                    // toggle is_help_pressed if the key is pressed
+                    KeyCode::KeyH => {
+                        self.is_help_pressed = is_pressed;
+                        if is_pressed && !self.is_being_helped {
+                            self.is_being_helped = true;
+                        }
+                        else if is_pressed && self.is_being_helped {
+                            self.is_help_just_pressed = true;
+                            self.is_being_helped = false;
+                        }
+                        true
+                    }
                     _ => false,
                 }
             }
@@ -169,78 +169,80 @@ impl World {
 
     /// update the objects in the world based off the key presses
     pub fn update_world(&mut self) {
-        let mut change_occurred = false;
-        if self.is_increase_pressed {
-            self.num_instances += 1;
-            change_occurred = true;
-        }
-        if self.is_decrease_pressed && self.num_instances > 0{
-            self.num_instances -= 1;
-            change_occurred = !change_occurred;
-        }
-        
-        if self.is_spin {
-            change_occurred = true;
-            // as the number of instances it takes longer to spin all of them, 
-            // so we increase the change according to the number of instances
-            self.cur_angle = self.cur_angle + 0.5 + (self.num_instances/200) as f32 + (self.num_instances/1000) as f32;
-            if self.cur_angle >= 360.0 {
-                self.cur_angle-=360.0;
+        if !self.is_being_helped {
+            let mut change_occurred = false;
+            if self.is_increase_pressed {
+                self.num_instances += 1;
+                change_occurred = true;
             }
-        }
-
-        if self.is_color_change && !self.is_color_change_pressed{
-            change_occurred = true;
-            self.is_color_change_pressed = true;
-            self.models[0].change_material();
-        } else if !self.is_color_change {
-            self.is_color_change_pressed = false;
-        }
-
-        if self.is_resize {
-            change_occurred = true;
-            if self.is_upscalling {
-                self.cur_scale = self.cur_scale + 0.01;
-                if self.cur_scale >= 1.0 {
-                    self.is_upscalling = false;
-                }
-            } else {
-                self.cur_scale = self.cur_scale - 0.01;
-                if self.cur_scale <= 0.5 {
-                    self.is_upscalling = true;
+            if self.is_decrease_pressed && self.num_instances > 0{
+                self.num_instances -= 1;
+                change_occurred = !change_occurred;
+            }
+            
+            if self.is_spin {
+                change_occurred = true;
+                // as the number of instances it takes longer to spin all of them, 
+                // so we increase the change according to the number of instances
+                self.cur_angle = self.cur_angle + 0.5 + (self.num_instances/200) as f32 + (self.num_instances/1000) as f32;
+                if self.cur_angle >= 360.0 {
+                    self.cur_angle-=360.0;
                 }
             }
-        }
 
+            if self.is_color_change && !self.is_color_change_pressed{
+                change_occurred = true;
+                self.is_color_change_pressed = true;
+                self.models[0].change_material();
+            } else if !self.is_color_change {
+                self.is_color_change_pressed = false;
+            }
 
-        if change_occurred {
-            // set up instances
-            // this is all our objects
-            const SPACE_BETWEEN: f32 = 3.0;
-
-            let num_instances = self.num_instances;
-            let mut angle = self.cur_angle;
-            let scale: f32 = self.cur_scale;
-
-            // we are making a n*n grid of cubes that are rotated at weird angles
-            let instances = (0..num_instances).flat_map(|z| {
-                (0..num_instances).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - num_instances as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - num_instances as f32 / 2.0);
-
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
-                    
-                    if position.is_zero() {
-                        angle+= 45.0;
+            if self.is_resize {
+                change_occurred = true;
+                if self.is_upscalling {
+                    self.cur_scale = self.cur_scale + 0.01;
+                    if self.cur_scale >= 1.0 {
+                        self.is_upscalling = false;
                     }
-                    let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(angle));
-
-                    instance::Instance {
-                        position, rotation, scale
+                } else {
+                    self.cur_scale = self.cur_scale - 0.01;
+                    if self.cur_scale <= 0.5 {
+                        self.is_upscalling = true;
                     }
-                })
-            }).collect::<Vec<_>>();
-            self.models[0].set_instances(instances);
+                }
+            }
+
+
+            if change_occurred {
+                // set up instances
+                // this is all our objects
+                const SPACE_BETWEEN: f32 = 3.0;
+
+                let num_instances = self.num_instances;
+                let mut angle = self.cur_angle;
+                let scale: f32 = self.cur_scale;
+
+                // we are making a n*n grid of cubes that are rotated at weird angles
+                let instances = (0..num_instances).flat_map(|z| {
+                    (0..num_instances).map(move |x| {
+                        let x = SPACE_BETWEEN * (x as f32 - num_instances as f32 / 2.0);
+                        let z = SPACE_BETWEEN * (z as f32 - num_instances as f32 / 2.0);
+
+                        let position = cgmath::Vector3 { x, y: 0.0, z };
+                        
+                        if position.is_zero() {
+                            angle+= 45.0;
+                        }
+                        let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(angle));
+
+                        instance::Instance {
+                            position, rotation, scale
+                        }
+                    })
+                }).collect::<Vec<_>>();
+                self.models[0].set_instances(instances);
+            }
         }
     }
 
@@ -259,6 +261,41 @@ impl World {
     //         self.instancecpy = self.models[0].instances;
     //     }
     // }
+
+    pub fn go_to_help(&mut self) {
+        
+        if self.is_being_helped {
+            // set up 1 instance of a cube
+            // this will have the help menu texture
+            let scale: f32 = 1.0;
+
+            // we are making 1 cube
+            let instances = (0..1).flat_map(|z| {
+                (0..1).map(move |x| {
+                    let x = 0.0;
+                    let z = -1.0;
+                    let position = cgmath::Vector3 {x, y: 0.0, z};
+                    
+                    let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(270.0));
+
+                    instance::Instance {
+                        position, rotation, scale
+                    }
+                })
+            }).collect::<Vec<_>>();
+            self.models[1].set_instances(instances);
+            self.models[0].visible = false;
+            self.models[1].visible = true;
+        }
+
+        if !self.is_being_helped {
+            if self.is_help_just_pressed {
+                self.models[1].visible = false;
+                self.models[0].visible = true;
+                self.is_help_just_pressed = false;
+            }
+        }
+    }
 }
 
 pub trait DrawWorld<'a> {

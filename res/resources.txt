@@ -1,1 +1,2 @@
 cube/cube.obj
+cube/hcube.obj

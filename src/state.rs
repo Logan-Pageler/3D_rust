@@ -300,7 +300,10 @@ impl<'a> State<'a> {
     /// 
     /// Returns true if it successfully handled the user input
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.mouse_grabber.process_events(event, self.window) || self.camera_controller.process_events(event) || self.world.process_events(event)
+        let mut result = self.mouse_grabber.process_events(event, self.window);
+        result = self.camera_controller.process_events(event) || result;
+        result = self.world.process_events(event) || result;
+        return result;
     }
 
 
@@ -325,6 +328,7 @@ impl<'a> State<'a> {
     /// update various objects in the program
     pub fn update(&mut self) {
         self.world.update_world();
+        self.world.go_to_help();
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
