@@ -30,6 +30,7 @@ pub struct World {
     is_resize_pressed: bool,
     is_upscalling: bool,
     num_instances: u32,
+    initialized: bool,
     is_help_pressed: bool,
     is_being_helped: bool,
     is_help_just_pressed: bool
@@ -88,9 +89,10 @@ impl World {
             is_resize: false,
             is_resize_pressed: false,
             is_upscalling: false,        
-            num_instances: 0,
+            num_instances: 5,
+            initialized: true,
             is_help_pressed: false,
-            is_being_helped: false,
+            is_being_helped: true,
             is_help_just_pressed: false
         }
     }
@@ -171,6 +173,10 @@ impl World {
     pub fn update_world(&mut self) {
         if !self.is_being_helped {
             let mut change_occurred = false;
+            if self.initialized {
+                change_occurred = true;
+                self.initialized = false;
+            }
             if self.is_increase_pressed {
                 self.num_instances += 1;
                 change_occurred = true;
@@ -281,6 +287,7 @@ impl World {
                     let position = cgmath::Vector3 {x, y: 0.0, z};
                     
                     let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(270.0));
+                    
 
                     instance::Instance {
                         position, rotation, scale

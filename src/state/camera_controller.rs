@@ -48,7 +48,7 @@ impl CameraController {
             is_looking_up: false,
             is_looking_down: false,
             is_h_pressed: false,
-            is_being_helped: false,
+            is_being_helped: true,
             is_h_just_pressed: false,
             yaw: -90.0,   // Start looking along -Z
             pitch: 0.0,
