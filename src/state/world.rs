@@ -200,13 +200,17 @@ impl World {
 
             if self.is_resize {
                 change_occurred = true;
+
+                // increase or decreace the scale depending if the instances are getting bigger or smaller
                 if self.is_upscalling {
                     self.cur_scale = self.cur_scale + 0.01;
+                    // if we reached the max size, start to decreace the scale
                     if self.cur_scale >= 1.0 {
                         self.is_upscalling = false;
                     }
                 } else {
                     self.cur_scale = self.cur_scale - 0.01;
+                    // if we reached the min size, start to increase the scale
                     if self.cur_scale <= 0.5 {
                         self.is_upscalling = true;
                     }

@@ -151,6 +151,7 @@ impl CameraController {
         }
     }
 
+    /// Modified to always process mouse wheel without button check
     pub fn process_mouse_wheel(&mut self, scroll:f32, camera: &mut Camera) {
         if !self.is_being_helped {
             use cgmath::InnerSpace;

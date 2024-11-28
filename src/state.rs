@@ -307,7 +307,7 @@ impl<'a> State<'a> {
     }
 
 
-    /// Handle mouse events
+    /// Handle mouse movement event
     pub fn process_mouse_movement(&mut self, delta_x: f64, delta_y: f64) {
         if self.mouse_grabber.mouse_locked {
             self.camera_controller.process_mouse(delta_x, delta_y);
@@ -315,6 +315,7 @@ impl<'a> State<'a> {
         self.mouse_grabber.process_mouse(self.window, &self.size);
     }
 
+    // Handle mouse wheel event
     pub fn process_mouse_wheel(&mut self, delta: &MouseScrollDelta) {
         if self.mouse_grabber.mouse_locked {
             match delta {
