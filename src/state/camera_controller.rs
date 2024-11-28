@@ -114,6 +114,7 @@ impl CameraController {
                         self.is_looking_down = is_pressed;
                         true
                     }
+                    // help menu toggle
                     KeyCode::KeyH => {
                         self.is_h_pressed = is_pressed;
                         if is_pressed && !self.is_being_helped {
@@ -134,6 +135,7 @@ impl CameraController {
 
     /// Modified to always process mouse movement without button check
     pub fn process_mouse(&mut self, dx: f64, dy: f64) {
+        // if not in the help menu
         if !self.is_being_helped {
             // Always process mouse movement
             self.yaw += dx as f32 * self.sensitivity;
@@ -238,6 +240,7 @@ impl CameraController {
         }
     }
 
+    // sets the camera's position and direction to face the help menu
     pub fn go_to_help(&mut self, camera: &mut Camera) {
         // set camera direction to help cube location if not already in menu
         if self.is_being_helped {

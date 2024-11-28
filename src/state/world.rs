@@ -4,7 +4,7 @@ use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 use model::{DrawModel, Model};
 use resources::{load_model, load_string};
 use wgpu::BindGroupLayout;
-// use wgpu::Instance;
+
 use winit::{event::{ElementState, KeyEvent, WindowEvent}, keyboard::{KeyCode, PhysicalKey}};
 use cgmath::prelude::*;
 
@@ -14,10 +14,9 @@ pub mod resources;
 pub mod texture;
 
 pub struct World {
+    // model vector
     pub models: Vec<Model>, 
-    // instancecpy: Vec<instance::Instance>,
-    // help_cube_instance: Vec<instance::Instance>,
-    // materialcpy: f32,
+    // model's cube's features
     is_increase_pressed: bool,
     is_decrease_pressed: bool,
     is_spin: bool,
@@ -30,7 +29,9 @@ pub struct World {
     is_resize_pressed: bool,
     is_upscalling: bool,
     num_instances: u32,
+    // initialization flag
     initialized: bool,
+    // world help controls
     is_help_pressed: bool,
     is_being_helped: bool,
     is_help_just_pressed: bool
@@ -55,29 +56,8 @@ impl World {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
-        // // instantiating the cube with the help menu on it
-        // let help_cube_instance = (0..0).flat_map(|z| {
-        //     (0..0).map(move |x| {
-        //         let x = x as f32;
-        //         let z = z as f32;
-
-        //         let scale = 1.0;
-
-        //         let position = cgmath::Vector3 { x, y: 0.0, z };
-                
-        //         let rotation = cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.0));
-
-        //         instance::Instance {
-        //             position, rotation, scale
-        //         }
-        //     })
-        // }).collect::<Vec<_>>();
-
         Self {
             models,
-            // instancecpy: Vec::new(),
-            // help_cube_instance,
-            // materialcpy: 0.0,
             is_decrease_pressed: false,
             is_increase_pressed: false,
             is_spin: false,
@@ -171,6 +151,7 @@ impl World {
 
     /// update the objects in the world based off the key presses
     pub fn update_world(&mut self) {
+        // if not in the help menu
         if !self.is_being_helped {
             let mut change_occurred = false;
             if self.initialized {
@@ -256,22 +237,8 @@ impl World {
         }
     }
 
-    // pub fn make_help(&mut self) {
-    //     // make help cube
-    //     if self.is_being_helped {
-    //         self.models[0].set_instances(self.help_cube_instance);
-    //     }
-    //     // set instancecpy to copy the instances
-    //     if !self.is_being_helped {
-    //         // if key was just pressed set instances to copy
-    //         if self.is_help_just_pressed {
-    //             self.models[0].set_instances(self.instancecpy);
-    //             self.is_help_just_pressed = false;
-    //         }
-    //         self.instancecpy = self.models[0].instances;
-    //     }
-    // }
-
+    // creates an instance of a cube with the help menu texture in models[1]
+    // and switches the visible models
     pub fn go_to_help(&mut self) {
         
         if self.is_being_helped {
