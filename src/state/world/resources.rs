@@ -1,4 +1,4 @@
-// help load files and objects
+/// help load files and objects
 
 use std::{io::{BufReader, Cursor}, path::Path, rc::Rc};
 

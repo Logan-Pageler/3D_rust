@@ -1,4 +1,4 @@
-// file to handle loading textures
+/// file to handle loading textures
 use image::GenericImageView;
 use anyhow::*;
 
