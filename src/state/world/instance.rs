@@ -1,4 +1,4 @@
-// represent the instance of one model
+/// represent the instance of one model
 
 pub struct Instance {
     pub position: cgmath::Vector3<f32>,

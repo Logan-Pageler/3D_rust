@@ -1,3 +1,4 @@
+/// Define available library functions and setup our window
 mod state;
 
 use winit::{

@@ -1,3 +1,4 @@
+/// Define the controls for the camera and handle user input.
 use super::camera::Camera;
 
 use winit::{

@@ -1,3 +1,4 @@
+/// Represent a model and how its rendered.
 use std::{ops::Range, rc::Rc};
 
 use wgpu::util::DeviceExt;

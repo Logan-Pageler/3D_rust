@@ -1,3 +1,5 @@
+/// Represent the camera in the screen.
+
 /// Represents the camera in easier user friendly format
 pub struct Camera {
     /// Location of camera

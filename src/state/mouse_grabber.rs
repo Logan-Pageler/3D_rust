@@ -1,3 +1,4 @@
+/// Handle grabbing the mouse when the window is focussed so that it doen't move around
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, event::{ElementState, KeyEvent, MouseButton, WindowEvent}, keyboard::{KeyCode, PhysicalKey}, window::Window};
 
 /// Tool to keep mouse locked on screen when using

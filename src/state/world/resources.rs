@@ -174,6 +174,14 @@ mod tests {
     /// Test that we can properly read text from file
     #[test]
     fn test_load_text() {
+
+        // type is inferred
+        let foo = 67;
+
+        // can cast when necessary
+        let bar = foo as u8 as char;
+        let baz = 32 as u16;
+
         let text = tokio_test::block_on(load_string(&"test_files/hello_world.txt")).unwrap();
 
         assert_eq!(text, "Hello World!");

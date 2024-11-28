@@ -1,3 +1,4 @@
+/// Represents the overall world with all its models.
 use std::{future::Future, rc::Rc};
 use futures::{future::join_all, stream::FuturesUnordered, StreamExt};
 

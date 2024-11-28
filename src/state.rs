@@ -1,3 +1,5 @@
+/// File to represent the overall state of the current window
+
 mod camera;
 mod camera_controller;
 mod world;
