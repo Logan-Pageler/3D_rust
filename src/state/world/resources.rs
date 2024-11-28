@@ -8,7 +8,6 @@ use super::{model, texture};
 
 /// function to load string data from a file
 pub async fn load_string(file_name: &dyn AsRef<Path>) -> anyhow::Result<String> {
-    println!("{}", file_name.as_ref().as_os_str().to_str().unwrap());
     let path = std::path::Path::new(env!("OUT_DIR"))
         .join("res")
         .join(file_name);
